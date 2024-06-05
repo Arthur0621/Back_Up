@@ -7,7 +7,6 @@ import model.EBorrowing;
 
 import javax.swing.*;
 import java.util.ArrayList;
-import java.util.Objects;
 import java.util.Scanner;
 
 
@@ -70,25 +69,44 @@ public class Library implements LibraryManagement {
         System.out.println("Enter your password:");
         String password = scanner.nextLine().trim();
 
+        boolean isNumeric = userInput.chars().allMatch(Character::isDigit);
         for (Borrower borrower : borrowers) {
-            if ((borrower.getUsername().equals(userInput) || borrower.getBorrowerId() == Integer.parseInt(userInput)) && borrower.getPassword().equals(password)) {
+            boolean match = false;
+            if (isNumeric) {
+                int userId = Integer.parseInt(userInput);
+                match = borrower.getBorrowerId() == userId && borrower.getPassword().equals(password);
+            } else {
+                match = borrower.getUsername().equals(userInput) && borrower.getPassword().equals(password);
+            }
+            if (match) {
                 currentUser = borrower;
+                System.out.println("Login successful!");
                 return;
             }
         }
         System.out.println("Invalid username/ID or password. Please try again.");
     }
 
-    public int loginGUI(String username, String password) {
+    public int loginGUI(String userInput, String password) {
+        boolean isNumeric = userInput.chars().allMatch(Character::isDigit);
         for (Borrower borrower : borrowers) {
-            if ((borrower.getUsername().equals(username) || String.valueOf(borrower.getBorrowerId()).equals(username)) && borrower.getPassword().equals(password)) {
+            boolean match = false;
+            if (isNumeric) {
+                int userId = Integer.parseInt(userInput);
+                match = borrower.getBorrowerId() == userId && borrower.getPassword().equals(password);
+            } else {
+                match = borrower.getUsername().equals(userInput) && borrower.getPassword().equals(password);
+            }
+            if (match) {
                 currentUser = borrower;
+                System.out.println("Login successful!");
                 return 1;
             }
         }
         System.out.println("Invalid username/ID or password. Please try again.");
         return 0;
     }
+
 
     public void register(Borrower borrower) {
         Scanner scanner = new Scanner(System.in);
@@ -450,6 +468,10 @@ public int generateBorrowerId() {
             for (EBook ebook : ebooks) {
                 System.out.println("ID: " + ebook.getItemId() + ", Title: " + ebook.getTitle() + ", Author: " + ebook.getAuthor() + ", Year Published: " + ebook.getYearPublished() + ", Size " + ebook.getSize() + ", Format: " + ebook.getFormat());
             }
+            for (Borrower borrower : borrowers) {
+                System.out.println("BorrowerId: " + borrower.getBorrowerId() + ", Name: " + borrower.getName() + ", Address: " + borrower.getAddress() + ", Phone Number: " + borrower.getPhoneNumber() + ", Username: " + borrower.getUsername() + ", Password: " + borrower.getPassword());
+            }
+
             for (Borrowing borrowing : borrowings) {
                 System.out.println("BookId: " + borrowing.getBookId() + ", BorrowerId: " + borrowing.getBorrowerId()+ ", Quantity: " + borrowing.getQuantityBorrow());
             }
@@ -467,7 +489,7 @@ public int generateBorrowerId() {
         saveEBorrowingsToDatabase();
     }
 
-    private void saveBooksToDatabase() {
+    public void saveBooksToDatabase() {
         String insertBookQuery = "INSERT INTO Books (bookId, title, author, yearPublished, quantity) VALUES (?, ?, ?, ?, ?)";
         String checkBookQuery = "SELECT * FROM Books WHERE bookId = ?";
         String updateBookQuery = "UPDATE Books SET title = ?, author = ?, yearPublished = ?, quantity = ? WHERE bookId = ?";
@@ -508,7 +530,7 @@ public int generateBorrowerId() {
     }
 
 
-    private void saveEBooksToDatabase() {
+    public void saveEBooksToDatabase() {
         String insertBookQuery = "INSERT INTO EBooks (EbookId, title, author, yearPublished, size, format) VALUES (?, ?, ?, ?, ?, ?)";
         String checkBookQuery = "SELECT * FROM EBooks WHERE EbookId = ?";
         String updateBookQuery = "UPDATE EBooks SET title = ?, author = ?, yearPublished = ?, size = ?, format = ? WHERE EbookId = ?";
@@ -631,7 +653,7 @@ public int generateBorrowerId() {
         }
     }
 
-    private void saveEBorrowingsToDatabase() {
+    public void saveEBorrowingsToDatabase() {
         for (EBorrowing eborrowing : eborrowings) {
             saveEBorrowingToDatabase(eborrowing);
         }
@@ -723,9 +745,9 @@ public int generateBorrowerId() {
                 String username = rs.getString("username");
                 String password = rs.getString("password");
 
-                Borrower borrower = new Borrower(borrowerId, name, address, phoneNumber);
-                borrower.setUsername(username);
-                borrower.setPassword(password);
+                Borrower borrower = new Borrower(borrowerId, name, address, phoneNumber,username, password);
+//                borrower.setUsername(username);
+//                borrower.setPassword(password);
                 borrowers.add(borrower);
             }
             System.out.println("Borrowers loaded from the database successfully.");

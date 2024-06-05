@@ -10,6 +10,7 @@ public class Library_App {
 
     public static void main(String[] args) {
         library = new Library();
+        library.loadAllFromDatabase();
         Scanner scanner = new Scanner(System.in);
         System.out.println("\n==== Library Management System ====");
         System.out.println("1. Login");

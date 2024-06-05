@@ -12,6 +12,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
+import java.util.Random;
 
 public class ShowMenuAdmin extends JFrame implements ActionListener {
     //private JLabel noBooksLabel;
@@ -22,7 +23,7 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
     private static ArrayList<Book> books;
     private static ArrayList<EBook> ebooks;
     private static ArrayList<Borrower> borrowers;
-    private static ArrayList<Borrowing> borrowings;
+    private static ArrayList<Borrower> borrowings;
     private static ArrayList<EBorrowing> eborrowings;
     private JTextArea bookTextArea;
 
@@ -36,6 +37,9 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
         this.library = library;
         this.books = ShowMenuAdmin.library.getBooks();  // Get book list from Library
         this.ebooks = ShowMenuAdmin.library.getEBooks();
+        this.borrowers = ShowMenuAdmin.library.getBorrowers();
+        this.borrowings = ShowMenuAdmin.library.getBorrowers();
+        this.borrowings = ShowMenuAdmin.library.getBorrowers();
 
         setTitle("Library Menu Admin");
         setSize(300, 600);
@@ -55,7 +59,7 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
 
         // Search Button
         gbc.gridx = 0;
-        gbc.gridy = 2;
+        gbc.gridy = 1;
         gbc.gridwidth = 2;
         searchButton = new JButton("Search Book");
         searchButton.addActionListener(this);
@@ -64,7 +68,7 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
 
         // Display Button
         gbc.gridx = 0;
-        gbc.gridy = 1;
+        gbc.gridy = 2;
         gbc.gridwidth = 2;
         displayButton = new JButton("Display Books");
         displayButton.addActionListener(this);
@@ -297,9 +301,22 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
 
         if (bookId.startsWith("B")) {
             library.borrowBook(bookId, library.getCurrentUser(), Integer.parseInt(quantity));
+            library.saveBorrowingsToDatabase();
         } else if (bookId.startsWith("E")) {
             library.borrowEBook(bookId, library.getCurrentUser());
+            library.saveEBorrowingsToDatabase();
+            String randomCode = generateRandomCode();
+            JOptionPane.showMessageDialog(this, "EBook borrowed successfully. Your code: " + randomCode);
         }
+    }
+
+    public String generateRandomCode() {
+        Random random = new Random();
+        StringBuilder code = new StringBuilder();
+        for (int i = 0; i < 8; i++) {
+            code.append(random.nextInt(10));
+        }
+        return code.toString();
     }
 
     private void returnBook() {
@@ -316,6 +333,7 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
             String bookId = bookIdField.getText();
             int quantityToReturn = Integer.parseInt(quantityField.getText());
             library.returnBook(bookId, library.getCurrentUser().getBorrowerId(), quantityToReturn);
+            library.saveBorrowingsToDatabase();
             JOptionPane.showMessageDialog(this, "You have returned " + quantityToReturn + " copy/copies of the book with ID: " + bookId);
         }
     }
@@ -367,6 +385,7 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
 
                 Book newBook = new Book(bookId, title, author, yearPublished, quantity);
                 library.addBook(newBook);
+                library.saveBooksToDatabase();
             } else if (bookId.startsWith("E")) {
                 double size;
                 try {
@@ -378,6 +397,7 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
                 String format = formatField.getText().trim();
                 EBook newEBook = new EBook(bookId, title, author, yearPublished, size, format);
                 library.addEBook(newEBook);
+                library.saveEBooksToDatabase();
             } else {
                 JOptionPane.showMessageDialog(this, "Invalid book ID format. Book ID must start with 'B' for physical books or 'E' for eBooks.", "Error", JOptionPane.ERROR_MESSAGE);
             }
@@ -389,11 +409,9 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
         Object[] message = {
                 "Enter the ID of the book/ebook you want to edit:", bookIdField,
         };
-
         int option = JOptionPane.showConfirmDialog(this, message, "Edit Book/EBook", JOptionPane.OK_CANCEL_OPTION);
         if (option == JOptionPane.OK_OPTION) {
             String bookId = bookIdField.getText().trim();
-
             if (bookId.startsWith("B")) {
                 Book bookToEdit = library.findBookById(bookId);
                 if (bookToEdit != null) {
@@ -401,7 +419,6 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
                     JTextField authorField = new JTextField(bookToEdit.getAuthor());
                     JTextField yearField = new JTextField(String.valueOf(bookToEdit.getYearPublished()));
                     JTextField quantityField = new JTextField(String.valueOf(bookToEdit.getQuantity()));
-
                     Object[] editMessage = {
                             "Current information of the book:",
                             "ID: " + bookToEdit.getItemId(),
@@ -410,14 +427,12 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
                             "Year Published:", yearField,
                             "Quantity:", quantityField,
                     };
-
                     int editOption = JOptionPane.showConfirmDialog(this, editMessage, "Edit Book", JOptionPane.OK_CANCEL_OPTION);
                     if (editOption == JOptionPane.OK_OPTION) {
                         String newTitle = titleField.getText().trim();
                         String newAuthor = authorField.getText().trim();
                         int newYear;
                         int newQuantity;
-
                         try {
                             newYear = Integer.parseInt(yearField.getText().trim());
                             if (newYear < 0) {
@@ -428,19 +443,17 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
                             JOptionPane.showMessageDialog(this, "Invalid year published format.", "Error", JOptionPane.ERROR_MESSAGE);
                             return;
                         }
-
                         try {
                             newQuantity = Integer.parseInt(quantityField.getText().trim());
                         } catch (NumberFormatException e) {
                             JOptionPane.showMessageDialog(this, "Invalid quantity format.", "Error", JOptionPane.ERROR_MESSAGE);
                             return;
                         }
-
                         bookToEdit.setTitle(newTitle);
                         bookToEdit.setAuthor(newAuthor);
                         bookToEdit.setYearPublished(newYear);
                         bookToEdit.setQuantity(newQuantity);
-
+                        library.saveBooksToDatabase();
                         JOptionPane.showMessageDialog(this, "Book information updated successfully.");
                     }
                 } else {
@@ -454,7 +467,6 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
                     JTextField yearField = new JTextField(String.valueOf(ebookToEdit.getYearPublished()));
                     JTextField sizeField = new JTextField(String.valueOf(ebookToEdit.getSize()));
                     JTextField formatField = new JTextField(ebookToEdit.getFormat());
-
                     Object[] editMessage = {
                             "Current information of the ebook:",
                             "ID: " + ebookToEdit.getItemId(),
@@ -464,7 +476,6 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
                             "Size:", sizeField,
                             "Format:", formatField,
                     };
-
                     int editOption = JOptionPane.showConfirmDialog(this, editMessage, "Edit EBook", JOptionPane.OK_CANCEL_OPTION);
                     if (editOption == JOptionPane.OK_OPTION) {
                         String newTitle = titleField.getText().trim();
@@ -472,7 +483,6 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
                         int newYear;
                         double newSize;
                         String newFormat = formatField.getText().trim();
-
                         try {
                             newYear = Integer.parseInt(yearField.getText().trim());
                             if (newYear < 0) {
@@ -483,7 +493,6 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
                             JOptionPane.showMessageDialog(this, "Invalid year published format.", "Error", JOptionPane.ERROR_MESSAGE);
                             return;
                         }
-
                         try {
                             newSize = Double.parseDouble(sizeField.getText().trim());
                             if (newSize < 0) {
@@ -494,13 +503,12 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
                             JOptionPane.showMessageDialog(this, "Invalid size format.", "Error", JOptionPane.ERROR_MESSAGE);
                             return;
                         }
-
                         ebookToEdit.setTitle(newTitle);
                         ebookToEdit.setAuthor(newAuthor);
                         ebookToEdit.setYearPublished(newYear);
                         ebookToEdit.setSize(newSize);
                         ebookToEdit.setFormat(newFormat);
-
+                        library.saveEBooksToDatabase();
                         JOptionPane.showMessageDialog(this, "EBook information updated successfully.");
                     }
                 } else {
@@ -511,7 +519,6 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
             }
         }
     }
-
 
     public void removeBook() {
         JTextField bookIdField = new JTextField();
@@ -534,9 +541,9 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
                     JOptionPane.showMessageDialog(this, "Invalid quantity format.", "Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
-
                 boolean success = library.removeBookGUI(bookId, quantityToRemove);
                 if (success) {
+                    library.saveBooksToDatabase();
                     JOptionPane.showMessageDialog(this, "Book removed successfully.");
                 } else {
                     JOptionPane.showMessageDialog(this, "Failed to remove the book. Please check the Book ID and quantity.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -544,6 +551,7 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
             } else if (bookId.startsWith("E")) {
                 boolean success = library.removeEBookGUI(bookId);
                 if (success) {
+                    library.saveEBooksToDatabase();
                     JOptionPane.showMessageDialog(this, "EBook removed successfully.");
                 } else {
                     JOptionPane.showMessageDialog(this, "Failed to remove the ebook. Please check the EBook ID.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -558,17 +566,11 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
     public void saveDatabase() {
         library.saveAllToDatabase();
             JOptionPane.showMessageDialog(this, "Library successfully saved to database!", "Success", JOptionPane.INFORMATION_MESSAGE);
-//        } else {
-//            JOptionPane.showMessageDialog(this, "An error occurred while saving to database!", "Error", JOptionPane.ERROR_MESSAGE);
-//        }
     }
 
     public void loadDatabase() {
         library.loadAllFromDatabase();
             JOptionPane.showMessageDialog(this, "Library successfully loaded from database!", "Success", JOptionPane.INFORMATION_MESSAGE);
-//        } else {
-//            JOptionPane.showMessageDialog(this, "An error occurred while loading from database!", "Error", JOptionPane.ERROR_MESSAGE);
-//        }
     }
 
 

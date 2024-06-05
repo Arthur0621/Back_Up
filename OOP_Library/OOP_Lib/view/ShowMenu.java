@@ -13,6 +13,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
+import java.util.Random;
 
 public class ShowMenu extends JFrame implements ActionListener {
     private JButton searchButton, displayButton, borrowButton, returnButton, logoutButton, exitButton;
@@ -132,7 +133,7 @@ public class ShowMenu extends JFrame implements ActionListener {
         } else if (e.getSource() == exitButton) {
             int response = JOptionPane.showConfirmDialog(this, "Are you sure you want to exit?", "Confirm Exit", JOptionPane.YES_NO_OPTION);
             if (response == JOptionPane.YES_OPTION) {
-                System.exit(0); // Đóng chương trình nếu người dùng chọn YES
+                System.exit(0);
             }
         }
     }
@@ -263,7 +264,19 @@ public class ShowMenu extends JFrame implements ActionListener {
             library.saveBorrowingsToDatabase();
         } else if (bookId.startsWith("E")) {
             library.borrowEBook(bookId, library.getCurrentUser());
+            library.saveEBorrowingsToDatabase();
+            String randomCode = generateRandomCode();
+            JOptionPane.showMessageDialog(this, "EBook borrowed successfully. Your code: " + randomCode);
         }
+    }
+
+    public String generateRandomCode() {
+        Random random = new Random();
+        StringBuilder code = new StringBuilder();
+        for (int i = 0; i < 8; i++) {
+            code.append(random.nextInt(10));
+        }
+        return code.toString();
     }
 
     private void returnBook() {

@@ -1,21 +1,37 @@
 package view;
 
 import controller.Library;
-import model.Borrower;
+import model.*;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.ArrayList;
 
 public class LibraryMenuGUI extends JFrame implements ActionListener {
     private JButton searchButton, displayButton, borrowButton, returnButton, loginButton, registerButton, logoutButton, exitButton;
     private JTextField searchField, usernameField;
     private JPasswordField passwordField;
     private static Library library;
+    private static ArrayList<Book> books;
+    private static ArrayList<EBook> ebooks;
+    private static ArrayList<Borrower> borrowers;
+    private static ArrayList<Borrowing> borrowings;
+    private static ArrayList<EBorrowing> eborrowings;
 
-    public LibraryMenuGUI() {
-        library = new Library();
+    public LibraryMenuGUI(Library library) {
+        LibraryMenuGUI.library = new Library();
+        books = new ArrayList<>();
+        ebooks = new ArrayList<>();
+        borrowers = new ArrayList<>();
+        borrowings = new ArrayList<>();
+        eborrowings = new ArrayList<>();
+        this.library = library;
+        this.books = LibraryMenuGUI.library.getBooks();
+        this.ebooks = LibraryMenuGUI.library.getEBooks();
+        this.borrowers = LibraryMenuGUI.library.getBorrowers();
+
         setTitle("Library Management System");
         setSize(400, 200);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -28,7 +44,7 @@ public class LibraryMenuGUI extends JFrame implements ActionListener {
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.anchor = GridBagConstraints.WEST;
-        mainPanel.add(new JLabel("Username:"), gbc);
+        mainPanel.add(new JLabel("Username/ID:"), gbc);
 
         // Username Field
         gbc.gridx = 1;
@@ -82,7 +98,7 @@ public class LibraryMenuGUI extends JFrame implements ActionListener {
     public static void main(String[] args) {
         library = new Library();
         library.loadAllFromDatabase();
-        LibraryMenuGUI menuGUI = new LibraryMenuGUI();
+        SwingUtilities.invokeLater(() -> new LibraryMenuGUI(library));
     }
     @Override
     public void actionPerformed(ActionEvent e) {
@@ -110,9 +126,11 @@ public class LibraryMenuGUI extends JFrame implements ActionListener {
             } else if (role == 1) {
                 ShowMenuAdmin showMenuAdmin = new ShowMenuAdmin(library);
             }
-
+        } else {
+            JOptionPane.showMessageDialog(this, "Invalid username/ID or password. Please try again.", "Login Failed", JOptionPane.ERROR_MESSAGE);
         }
     }
+
 
     private void register() {
         JTextField nameField = new JTextField();
@@ -167,7 +185,6 @@ public class LibraryMenuGUI extends JFrame implements ActionListener {
                     JOptionPane.showMessageDialog(this, "Passwords do not match. Please try again.");
                 }
             } else {
-                // User chose to cancel, exit the method
                 return;
             }
         }
