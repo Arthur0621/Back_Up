@@ -76,10 +76,12 @@ public class LibraryMenuGUI extends JFrame implements ActionListener {
 
         add(mainPanel);
         setVisible(true);
+
     }
 
     public static void main(String[] args) {
         library = new Library();
+        library.loadAllFromDatabase();
         LibraryMenuGUI menuGUI = new LibraryMenuGUI();
     }
     @Override
@@ -93,7 +95,7 @@ public class LibraryMenuGUI extends JFrame implements ActionListener {
         } else if (e.getActionCommand().equals("Exit")) {
             int response = JOptionPane.showConfirmDialog(this, "Are you sure you want to exit?", "Confirm Exit", JOptionPane.YES_NO_OPTION);
             if (response == JOptionPane.YES_OPTION) {
-                System.exit(0); // Đóng chương trình nếu người dùng chọn YES
+                System.exit(0);
             }
         }
     }
@@ -102,21 +104,15 @@ public class LibraryMenuGUI extends JFrame implements ActionListener {
         int loginResult = library.loginGUI(usernameField.getText(), new String(passwordField.getPassword()));
         if (loginResult == 1) {
             int role = library.checkRole();
-            System.out.println("hehe "+ role);
+            System.out.println("hehe " + role);
             if (role == 0) {
-                //showMenu(); // Hiển thị menu cho người dùng
+                ShowMenu showMenu = new ShowMenu(library);
             } else if (role == 1) {
-                //showMenuAdmin();
-                // Người dùng là admin, thực hiện các hành động tương ứng nếu cần
+                ShowMenuAdmin showMenuAdmin = new ShowMenuAdmin(library);
             }
-            // Đăng nhập thành công
-            JOptionPane.showMessageDialog(this, "Login successful!");
-        } else {
-            // Đăng nhập không thành công
-            JOptionPane.showMessageDialog(this, "Invalid username/ID or password. Please try again.");
+
         }
     }
-
 
     private void register() {
         JTextField nameField = new JTextField();
@@ -125,10 +121,9 @@ public class LibraryMenuGUI extends JFrame implements ActionListener {
         JTextField usernameField = new JTextField();
         JPasswordField passwordField = new JPasswordField();
         JPasswordField confirmPasswordField = new JPasswordField();
-        int newBorrowerId = library.generateBorrowerId();
 
-        // Tạo một biến để lưu trạng thái của việc xác nhận mật khẩu
         boolean passwordsMatch = false;
+        int newBorrowerId = library.generateBorrowerId();
 
         while (!passwordsMatch) {
             Object[] message = {
@@ -150,32 +145,35 @@ public class LibraryMenuGUI extends JFrame implements ActionListener {
                 String password = new String(passwordField.getPassword());
                 String confirmPassword = new String(confirmPasswordField.getPassword());
 
-                if (password.equals(confirmPassword)) {
-                    // Nếu mật khẩu trùng khớp, đặt cờ và thoát khỏi vòng lặp
+                if (name.isEmpty() || address.isEmpty() || phone.isEmpty() || username.isEmpty() || password.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "All fields must be filled out.");
+                } else if (password.equals(confirmPassword)) {
                     passwordsMatch = true;
+
+                    Borrower newBorrower = new Borrower();
+                    newBorrower.setBorrowerId(newBorrowerId);
+                    newBorrower.setName(name);
+                    newBorrower.setAddress(address);
+                    newBorrower.setPhoneNumber(phone);
+                    newBorrower.setUsername(username);
+                    newBorrower.setPassword(password);
+
+                    // Register the new borrower
+                    library.registerGUI(newBorrower);
+                    library.incrementBorrowerCounter();
+                    library.saveBorrowersToDatabase();
+                    JOptionPane.showMessageDialog(null, "Registration successful! Your Borrower ID is: " + newBorrowerId);
                 } else {
-                    // Nếu mật khẩu không trùng khớp, hiển thị thông báo lỗi và tiếp tục vòng lặp
                     JOptionPane.showMessageDialog(this, "Passwords do not match. Please try again.");
                 }
             } else {
-                // Người dùng đã chọn hủy, thoát khỏi phương thức
+                // User chose to cancel, exit the method
                 return;
             }
         }
-
-        // Tạo borrower mới và gán các giá trị
-        Borrower newBorrower = new Borrower();
-        newBorrower.setBorrowerId(newBorrowerId);
-        newBorrower.setName(nameField.getText());
-        newBorrower.setAddress(addressField.getText());
-        newBorrower.setPhoneNumber(phoneField.getText());
-        newBorrower.setUsername(usernameField.getText());
-        newBorrower.setPassword(new String(passwordField.getPassword()));
-
-        // Đăng ký borrower mới
-        library.registerGUI(newBorrower);
-        JOptionPane.showMessageDialog(null, "Registration successful! Your Borrower ID is: " + newBorrowerId);
     }
+
+
 
 }
 

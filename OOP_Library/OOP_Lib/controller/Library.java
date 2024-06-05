@@ -151,9 +151,16 @@ public class Library implements LibraryManagement {
         //JOptionPane.showMessageDialog(null, "Registration successful! Your Borrower ID is: " + newBorrowerId);
     }
 
-    public int generateBorrowerId() {
-        int newBorrowerId = borrowerIdPre + (borrowerCounter++);
-        return newBorrowerId;
+//    public int generateBorrowerId() {
+//        int newBorrowerId = borrowerIdPre + (borrowerCounter++);
+//        return newBorrowerId;
+//    }
+public int generateBorrowerId() {
+    return borrowerIdPre + borrowerCounter;
+}
+
+    public void incrementBorrowerCounter() {
+        borrowerCounter++;
     }
 
     public void logout() {
@@ -351,6 +358,16 @@ public class Library implements LibraryManagement {
         }
         return false;
     }
+    public boolean removeEBookGUI(String bookId) {
+        EBook ebookToRemove = findEBookById(bookId);
+        if (ebookToRemove != null) {
+                ebooks.remove(ebookToRemove);
+                System.out.println("Book with ID " + bookId + " has been completely removed from the library.");
+        } else {
+            System.out.println("Book with ID " + bookId + " not found.");
+        }
+        return false;
+    }
 
     @Override
     public void borrowBook(String bookId, Borrower borrower, int quantityToBorrow) {
@@ -453,40 +470,43 @@ public class Library implements LibraryManagement {
     private void saveBooksToDatabase() {
         String insertBookQuery = "INSERT INTO Books (bookId, title, author, yearPublished, quantity) VALUES (?, ?, ?, ?, ?)";
         String checkBookQuery = "SELECT * FROM Books WHERE bookId = ?";
-        String updateBookQuery = "UPDATE Books SET quantity = ? WHERE bookId = ?";
+        String updateBookQuery = "UPDATE Books SET title = ?, author = ?, yearPublished = ?, quantity = ? WHERE bookId = ?";
 
         try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
              PreparedStatement pstmtInsert = conn.prepareStatement(insertBookQuery);
              PreparedStatement pstmtCheck = conn.prepareStatement(checkBookQuery);
              PreparedStatement pstmtUpdate = conn.prepareStatement(updateBookQuery)) {
+
             for (Book book : books) {
                 pstmtCheck.setString(1, book.getItemId());
                 ResultSet resultSet = pstmtCheck.executeQuery();
+
                 if (resultSet.next()) {
-                    int existingQuantity = resultSet.getInt("quantity");
-                    int newQuantity = book.getQuantity();
-                    if (existingQuantity != newQuantity) {
-                        pstmtUpdate.setInt(1, newQuantity);
-                        pstmtUpdate.setString(2, book.getItemId());
-                        pstmtUpdate.executeUpdate();
-                        System.out.println("Quantity for Book with ID " + book.getItemId() + " updated successfully.");
-                    }
-                    System.out.println("Book with ID " + book.getItemId() + " already exists in the database. Skipping...");
-                    continue;
+                    // Update existing book
+                    pstmtUpdate.setString(1, book.getTitle());
+                    pstmtUpdate.setString(2, book.getAuthor());
+                    pstmtUpdate.setInt(3, book.getYearPublished());
+                    pstmtUpdate.setInt(4, book.getQuantity());
+                    pstmtUpdate.setString(5, book.getItemId());
+                    pstmtUpdate.executeUpdate();
+                    System.out.println("Book with ID " + book.getItemId() + " updated successfully.");
+                } else {
+                    // Insert new book
+                    pstmtInsert.setString(1, book.getItemId());
+                    pstmtInsert.setString(2, book.getTitle());
+                    pstmtInsert.setString(3, book.getAuthor());
+                    pstmtInsert.setInt(4, book.getYearPublished());
+                    pstmtInsert.setInt(5, book.getQuantity());
+                    pstmtInsert.executeUpdate();
+                    System.out.println("Book with ID " + book.getItemId() + " saved to the database successfully.");
                 }
-                pstmtInsert.setString(1, book.getItemId());
-                pstmtInsert.setString(2, book.getTitle());
-                pstmtInsert.setString(3, book.getAuthor());
-                pstmtInsert.setInt(4, book.getYearPublished());
-                pstmtInsert.setInt(5, book.getQuantity());
-                pstmtInsert.executeUpdate();
-                System.out.println("Book with ID " + book.getItemId() + " saved to the database successfully.");
             }
-            System.out.println("All books saved to the database successfully.");
+            System.out.println("All books processed successfully.");
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
+
 
     private void saveEBooksToDatabase() {
         String insertBookQuery = "INSERT INTO EBooks (EbookId, title, author, yearPublished, size, format) VALUES (?, ?, ?, ?, ?, ?)";
@@ -530,7 +550,7 @@ public class Library implements LibraryManagement {
         }
     }
 
-    private void saveBorrowersToDatabase() {
+    public void saveBorrowersToDatabase() {
         for (Borrower borrower : borrowers) {
             saveBorrowerToDatabase(borrower);
         }
@@ -567,7 +587,7 @@ public class Library implements LibraryManagement {
         }
     }
 
-    private void saveBorrowingsToDatabase() {
+    public void saveBorrowingsToDatabase() {
         for (Borrowing borrowing : borrowings) {
             saveBorrowingToDatabase(borrowing);
         }
@@ -662,46 +682,39 @@ public class Library implements LibraryManagement {
         loadEBorrowingsFromDatabase();
 
     }
-    
+
     private void loadBooksFromDatabase() {
         String selectBooksQuery = "SELECT * FROM Books";
         try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(selectBooksQuery)) {
+
+            books.clear(); // Xóa dữ liệu cũ trước khi tải dữ liệu mới
+
             while (rs.next()) {
                 String bookId = rs.getString("bookId");
                 String title = rs.getString("title");
                 String author = rs.getString("author");
                 int yearPublished = rs.getInt("yearPublished");
                 int quantity = rs.getInt("quantity");
-                boolean exists = false;
 
-                for (Book book : books) {
-                    if (book.getItemId().equals(bookId)) {
-                        book.setTitle(title);
-                        book.setAuthor(author);
-                        book.setYearPublished(yearPublished);
-                        book.setQuantity(quantity);
-                        exists = true;
-                        break;
-                    }
-                }
-                if (!exists) {
-                    Book book = new Book(bookId, title, author, yearPublished, quantity);
-                    books.add(book);
-                }
+                Book book = new Book(bookId, title, author, yearPublished, quantity);
+                books.add(book);
             }
             System.out.println("Books loaded from the database successfully.");
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
-    
+
     private void loadBorrowersFromDatabase() {
         String selectBorrowersQuery = "SELECT * FROM Borrowers";
         try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(selectBorrowersQuery)) {
+
+            borrowers.clear(); // Xóa dữ liệu cũ trước khi tải dữ liệu mới
+
             while (rs.next()) {
                 int borrowerId = rs.getInt("borrowerId");
                 String name = rs.getString("name");
@@ -709,53 +722,35 @@ public class Library implements LibraryManagement {
                 String phoneNumber = rs.getString("phoneNumber");
                 String username = rs.getString("username");
                 String password = rs.getString("password");
-                boolean exists = false;
 
-                for (Borrower borrower : borrowers) {
-                    if (borrower.getBorrowerId()==borrowerId && Objects.equals(borrower.getUsername(), username)) {
-                        borrower.setName(name);
-                        borrower.setAddress(address);
-                        borrower.setPhoneNumber(phoneNumber);
-                        borrower.setPassword(password);
-                        exists = true;
-                        break;
-                    }
-                }
-                if (!exists) {
-                    Borrower borrower = new Borrower(borrowerId, name, address, phoneNumber);
-                    borrowers.add(borrower);
-                }
+                Borrower borrower = new Borrower(borrowerId, name, address, phoneNumber);
+                borrower.setUsername(username);
+                borrower.setPassword(password);
+                borrowers.add(borrower);
             }
             System.out.println("Borrowers loaded from the database successfully.");
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
-    
+
     private void loadBorrowingsFromDatabase() {
         String selectBorrowingsQuery = "SELECT * FROM Borrowings";
         try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(selectBorrowingsQuery)) {
+
+            borrowings.clear(); // Xóa dữ liệu cũ trước khi tải dữ liệu mới
+
             while (rs.next()) {
                 String bookId = rs.getString("bookId");
                 int borrowerId = rs.getInt("borrowerId");
                 int quantityBorrow = rs.getInt("quantityBorrow");
                 Date borrowDate = rs.getDate("borrowDate");
                 Date returnDate = rs.getDate("returnDate");
-                boolean exists = false;
 
-                for (Borrowing borrowing : borrowings) {
-                    if (borrowing.getBookId().equals(bookId) && borrowing.getBorrowerId() == borrowerId && borrowing.getQuantityBorrow() == quantityBorrow
-                            && borrowing.getBorrowDate()==borrowDate && borrowing.getReturnDate()==returnDate ) {
-                        exists = true;
-                        break;
-                    }
-                }
-                if (!exists) {
-                    Borrowing borrowing = new Borrowing(bookId, borrowerId, borrowDate, returnDate);
-                    borrowings.add(borrowing);
-                }
+                Borrowing borrowing = new Borrowing(bookId, borrowerId, quantityBorrow,borrowDate, returnDate );
+                borrowings.add(borrowing);
             }
             System.out.println("Borrowings loaded from the database successfully.");
         } catch (SQLException e) {
@@ -765,15 +760,14 @@ public class Library implements LibraryManagement {
 
     private void loadEBooksFromDatabase() {
         String selectEBooksQuery = "SELECT * FROM EBooks";
-
         try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(selectEBooksQuery)) {
 
-            ebooks.clear();
+            ebooks.clear(); // Xóa dữ liệu cũ trước khi tải dữ liệu mới
 
             while (rs.next()) {
-                String ebookId = rs.getString("EbookId");
+                String ebookId = rs.getString("ebookId");
                 String title = rs.getString("title");
                 String author = rs.getString("author");
                 int yearPublished = rs.getInt("yearPublished");
@@ -783,9 +777,7 @@ public class Library implements LibraryManagement {
                 EBook ebook = new EBook(ebookId, title, author, yearPublished, 1, format, size);
                 ebooks.add(ebook);
             }
-
             System.out.println("All eBooks loaded from the database successfully.");
-
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -793,29 +785,27 @@ public class Library implements LibraryManagement {
 
     private void loadEBorrowingsFromDatabase() {
         String selectEBorrowingsQuery = "SELECT * FROM EBorrowings";
-
         try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(selectEBorrowingsQuery)) {
 
-            eborrowings.clear();
+            eborrowings.clear(); // Xóa dữ liệu cũ trước khi tải dữ liệu mới
 
             while (rs.next()) {
-                String ebookId = rs.getString("EbookId");
+                String ebookId = rs.getString("ebookId");
                 int borrowerId = rs.getInt("borrowerId");
                 Date borrowDate = rs.getDate("borrowDate");
                 Date returnDate = rs.getDate("returnDate");
 
-                EBorrowing eborrowing = new EBorrowing(ebookId, borrowerId, borrowDate, returnDate); // Chú ý rằng ở đây bạn cần có một constructor phù hợp cho Borrowing hoặc tạo lớp mới nếu cần.
+                EBorrowing eborrowing = new EBorrowing(ebookId, borrowerId, borrowDate, returnDate);
                 eborrowings.add(eborrowing);
             }
-
             System.out.println("All eBook borrowings loaded from the database successfully.");
-
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
+
 
 
 }

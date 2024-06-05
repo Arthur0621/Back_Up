@@ -13,17 +13,16 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
-import java.util.Scanner;
 
 public class ShowMenu extends JFrame implements ActionListener {
     private JButton searchButton, displayButton, borrowButton, returnButton, logoutButton, exitButton;
     private JTextField searchField;
-    private static Library library;
-    private ArrayList<Book> books;
-    private ArrayList<EBook> ebooks;
-    private ArrayList<Borrower> borrowers;
-    private ArrayList<Borrowing> borrowings;
-    private ArrayList<EBorrowing> eborrowings;
+    static Library library;
+    private static ArrayList<Book> books;
+    private static ArrayList<EBook> ebooks;
+    private static ArrayList<Borrower> borrowers;
+    private static ArrayList<Borrowing> borrowings;
+    private static ArrayList<EBorrowing> eborrowings;
 
     public ArrayList<Book> getBooks() {
         return books;
@@ -45,8 +44,11 @@ public class ShowMenu extends JFrame implements ActionListener {
         this.borrowers = borrowers;
     }
 
-    public ShowMenu() {
-        library = new Library();
+    public ShowMenu(Library library) {
+        ShowMenu.library = new Library();
+        this.library = library;
+        this.books = ShowMenu.library.getBooks();  // Get book list from Library
+        this.ebooks = ShowMenu.library.getEBooks();
 
         setTitle("Library Menu");
         setSize(300, 400);
@@ -136,43 +138,111 @@ public class ShowMenu extends JFrame implements ActionListener {
     }
 
     public static void main(String[] args) {
-        ShowMenu menu = new ShowMenu();
-        library.loadAllFromDatabase();
+        library = new Library();
+        //ShowMenuAdmin menuAdmin = new ShowMenuAdmin();
+        SwingUtilities.invokeLater(() -> new ShowMenu(library));
     }
 
     private void searchBook() {
-        String query = String.valueOf(library.searchBook(searchField.getText()));
-        ArrayList<Book> foundBooks = library.searchBook(query);
+        String query = searchField.getText().trim();
+        ArrayList<Book> foundBooks = new ArrayList<>();
+
+        if (query.startsWith("B")) {
+            Book foundBook = library.findBookById(query);
+            if (foundBook != null) {
+                foundBooks.add(foundBook);
+            }
+        } else if (query.startsWith("E")) {
+            EBook foundEBook = library.findEBookById(query);
+            if (foundEBook != null) {
+                foundBooks.add(foundEBook);
+                foundBooks.addAll(library.searchEBook(query));
+            }
+        } else {
+            foundBooks = library.searchBook(query);
+        }
+
+        displaySearchResults(foundBooks);
+    }
+
+    private void displaySearchResults(ArrayList<Book> foundBooks) {
+        StringBuilder bookList = new StringBuilder();
 
         if (foundBooks.isEmpty()) {
-            System.out.println("No books found for the given query.");
+            bookList.append("No books found for the given query.");
         } else {
-            System.out.println("Books found:");
             for (Book book : foundBooks) {
-                System.out.println("ID: " + book.getItemId() + ", Title: " + book.getTitle() + ", Author: " + book.getAuthor() + ", Year Published: " + book.getYearPublished() + ", Quantity: " + book.getQuantity());
+                if (book instanceof EBook) {
+                    EBook ebook = (EBook) book;
+                    bookList.append("ID: ").append(ebook.getItemId())
+                            .append(", Title: ").append(ebook.getTitle())
+                            .append(", Author: ").append(ebook.getAuthor())
+                            .append(", Year Published: ").append(ebook.getYearPublished())
+                            .append(", Size: ").append(ebook.getSize())
+                            .append(", Format: ").append(ebook.getFormat()).append("\n");
+                } else {
+                    bookList.append("ID: ").append(book.getItemId())
+                            .append(", Title: ").append(book.getTitle())
+                            .append(", Author: ").append(book.getAuthor())
+                            .append(", Year Published: ").append(book.getYearPublished())
+                            .append(", Quantity: ").append(book.getQuantity()).append("\n");
+                }
             }
+        }
+
+        JTextArea bookTextArea = new JTextArea(bookList.toString());
+        bookTextArea.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(bookTextArea);
+        scrollPane.setPreferredSize(new Dimension(400, 200));
+        JOptionPane.showMessageDialog(this, scrollPane, "Search Results", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+
+    private void displayBooks() {
+        StringBuilder bookList = new StringBuilder();
+        appendBooksToList(bookList, books, "Books");
+        appendEBooksToList(bookList, ebooks, "EBooks");
+
+        if (bookList.isEmpty()) {
+            bookList.append("No books available.");
+        }
+
+        JTextArea bookTextArea = new JTextArea(bookList.toString());
+        JScrollPane scrollPane = new JScrollPane(bookTextArea);
+        JOptionPane.showMessageDialog(null, scrollPane, "Books", JOptionPane.PLAIN_MESSAGE);
+    }
+
+    private void appendBooksToList(StringBuilder list, ArrayList<Book> books, String type) {
+        if (!books.isEmpty()) {
+            list.append(type).append(":\n");
+            for (Book book : books) {
+                list.append("ID: ").append(book.getItemId())
+                        .append(", Title: ").append(book.getTitle())
+                        .append(", Author: ").append(book.getAuthor())
+                        .append(", Year Published: ").append(book.getYearPublished())
+                        .append(", Quantity: ").append(book.getQuantity())
+                        .append("\n");
+            }
+            list.append("\n");
         }
     }
 
-    public void displayBooks() {
-        if (books.isEmpty() && ebooks.isEmpty()) {
-            System.out.println("No books available.");
-        } else {
-            System.out.println("List of Books:");
-            for (Book book : books) {
-                System.out.println("ID: " + book.getItemId() + ", Title: " + book.getTitle() + ", Author: " + book.getAuthor() + ", Year Published: " + book.getYearPublished() + ", Quantity: " + book.getQuantity());
-            }
+    private void appendEBooksToList(StringBuilder list, ArrayList<EBook> ebooks, String type) {
+        if (!ebooks.isEmpty()) {
+            list.append(type).append(":\n");
             for (EBook ebook : ebooks) {
-                System.out.println("ID: " + ebook.getItemId() + ", Title: " + ebook.getTitle() + ", Author: " + ebook.getAuthor() + ", Year Published: " + ebook.getYearPublished() + ", Size " + ebook.getSize() + ", Format: " + ebook.getFormat());
+                list.append("ID: ").append(ebook.getItemId())
+                        .append(", Title: ").append(ebook.getTitle())
+                        .append(", Author: ").append(ebook.getAuthor())
+                        .append(", Year Published: ").append(ebook.getYearPublished())
+                        .append(", Size: ").append(ebook.getSize())
+                        .append(", Format: ").append(ebook.getFormat())
+                        .append("\n");
             }
-            for (Borrowing borrowing : borrowings) {
-                System.out.println("BookId: " + borrowing.getBookId() + ", BorrowerId: " + borrowing.getBorrowerId()+ ", Quantity: " + borrowing.getQuantityBorrow());
-            }
-            for (EBorrowing eborrowing : eborrowings) {
-                System.out.println("BookId: " + eborrowing.getBookId() + ", BorrowerId: ");
-            }
+            list.append("\n");
         }
     }
+
 
     public void borrowBook() {
         JTextField bookIdField = new JTextField();
@@ -190,6 +260,7 @@ public class ShowMenu extends JFrame implements ActionListener {
 
         if (bookId.startsWith("B")) {
             library.borrowBook(bookId, library.getCurrentUser(), Integer.parseInt(quantity));
+            library.saveBorrowingsToDatabase();
         } else if (bookId.startsWith("E")) {
             library.borrowEBook(bookId, library.getCurrentUser());
         }
@@ -209,6 +280,7 @@ public class ShowMenu extends JFrame implements ActionListener {
             String bookId = bookIdField.getText();
             int quantityToReturn = Integer.parseInt(quantityField.getText());
             library.returnBook(bookId, library.getCurrentUser().getBorrowerId(), quantityToReturn);
+            library.saveBorrowingsToDatabase();
             JOptionPane.showMessageDialog(this, "You have returned " + quantityToReturn + " copy/copies of the book with ID: " + bookId);
         }
     }

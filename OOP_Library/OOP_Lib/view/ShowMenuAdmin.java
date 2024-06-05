@@ -1,6 +1,5 @@
 package view;
 
-
 import controller.Library;
 import model.Book;
 import model.Borrower;
@@ -17,18 +16,26 @@ import java.util.ArrayList;
 public class ShowMenuAdmin extends JFrame implements ActionListener {
     //private JLabel noBooksLabel;
     private JButton searchButton, displayButton, borrowButton, returnButton,
-            addbookButton,editbookButton,removeButton,saveButton,loadButton, logoutButton, exitButton;
+            addbookButton, editbookButton, removeButton, saveButton, loadButton, logoutButton, exitButton;
     private JTextField searchField;
-    private static Library library;
-    private ArrayList<Book> books;
-    private ArrayList<EBook> ebooks;
-    private ArrayList<Borrower> borrowers;
-    private ArrayList<Borrowing> borrowings;
-    private ArrayList<EBorrowing> eborrowings;
+    static Library library;
+    private static ArrayList<Book> books;
+    private static ArrayList<EBook> ebooks;
+    private static ArrayList<Borrower> borrowers;
+    private static ArrayList<Borrowing> borrowings;
+    private static ArrayList<EBorrowing> eborrowings;
+    private JTextArea bookTextArea;
 
-    public ShowMenuAdmin() {
-        library = new Library();
-
+    public ShowMenuAdmin(Library library) {
+        ShowMenuAdmin.library = new Library();
+        books = new ArrayList<>();
+        ebooks = new ArrayList<>();
+        borrowers = new ArrayList<>();
+        borrowings = new ArrayList<>();
+        eborrowings = new ArrayList<>();
+        this.library = library;
+        this.books = ShowMenuAdmin.library.getBooks();  // Get book list from Library
+        this.ebooks = ShowMenuAdmin.library.getEBooks();
 
         setTitle("Library Menu Admin");
         setSize(300, 600);
@@ -53,6 +60,7 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
         searchButton = new JButton("Search Book");
         searchButton.addActionListener(this);
         mainPanel.add(searchButton, gbc);
+
 
         // Display Button
         gbc.gridx = 0;
@@ -136,6 +144,7 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
 
         add(mainPanel);
         setVisible(true);
+
     }
 
     public void actionPerformed(ActionEvent e) {
@@ -162,60 +171,116 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
         } else if (e.getSource() == exitButton) {
             int response = JOptionPane.showConfirmDialog(this, "Are you sure you want to exit?", "Confirm Exit", JOptionPane.YES_NO_OPTION);
             if (response == JOptionPane.YES_OPTION) {
-                System.exit(0); // Đóng chương trình nếu người dùng chọn YES
+                library.saveAllToDatabase();
+                System.exit(0);
             }
         }
     }
 
-    public void main(String[] args) {
-        books.add(new Book("B001", "Book Title 1", "Author 1", 2020, 10));
-        books.add(new Book("B002", "Book Title 2", "Author 2", 2021, 5));
-        ebooks.add(new EBook("E001", "Book Title 3", "Author 3", 2022, 3.2, "PDF"));
-
-        ShowMenuAdmin menuAdmin = new ShowMenuAdmin();
+    public static void main(String[] args) {
+        library = new Library();
+        //ShowMenuAdmin menuAdmin = new ShowMenuAdmin();
+        SwingUtilities.invokeLater(() -> new ShowMenuAdmin(library));
     }
 
     private void searchBook() {
-        String query = String.valueOf(library.searchBook(searchField.getText()));
-        ArrayList<Book> foundBooks = library.searchBook(query);
+        String query = searchField.getText().trim();
+        ArrayList<Book> foundBooks = new ArrayList<>();
+
+        if (query.startsWith("B")) {
+            Book foundBook = library.findBookById(query);
+            if (foundBook != null) {
+                foundBooks.add(foundBook);
+            }
+        } else if (query.startsWith("E")) {
+            EBook foundEBook = library.findEBookById(query);
+            if (foundEBook != null) {
+                foundBooks.add(foundEBook);
+                foundBooks.addAll(library.searchEBook(query));
+            }
+        } else {
+            foundBooks = library.searchBook(query);
+        }
+
+        displaySearchResults(foundBooks);
+    }
+
+    private void displaySearchResults(ArrayList<Book> foundBooks) {
+        StringBuilder bookList = new StringBuilder();
 
         if (foundBooks.isEmpty()) {
-            System.out.println("No books found for the given query.");
+            bookList.append("No books found for the given query.");
         } else {
-            System.out.println("Books found:");
             for (Book book : foundBooks) {
-                System.out.println("ID: " + book.getItemId() + ", Title: " + book.getTitle() + ", Author: " + book.getAuthor() + ", Year Published: " + book.getYearPublished() + ", Quantity: " + book.getQuantity());
+                if (book instanceof EBook) {
+                    EBook ebook = (EBook) book;
+                    bookList.append("ID: ").append(ebook.getItemId())
+                            .append(", Title: ").append(ebook.getTitle())
+                            .append(", Author: ").append(ebook.getAuthor())
+                            .append(", Year Published: ").append(ebook.getYearPublished())
+                            .append(", Size: ").append(ebook.getSize())
+                            .append(", Format: ").append(ebook.getFormat()).append("\n");
+                } else {
+                    bookList.append("ID: ").append(book.getItemId())
+                            .append(", Title: ").append(book.getTitle())
+                            .append(", Author: ").append(book.getAuthor())
+                            .append(", Year Published: ").append(book.getYearPublished())
+                            .append(", Quantity: ").append(book.getQuantity()).append("\n");
+                }
             }
         }
+
+        JTextArea bookTextArea = new JTextArea(bookList.toString());
+        bookTextArea.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(bookTextArea);
+        scrollPane.setPreferredSize(new Dimension(400, 200));
+        JOptionPane.showMessageDialog(this, scrollPane, "Search Results", JOptionPane.INFORMATION_MESSAGE);
     }
 
-    public void displayBooks() {
-        if (books.isEmpty() && ebooks.isEmpty()) {
-            // Show message in a designated GUI element (e.g., a label)
-            //noBooksLabel.setText("No books available.");
-        } else {
-            // Display book details in a suitable GUI component (e.g., a text area)
-            StringBuilder bookList = new StringBuilder("List of Books:\n");
+    private void displayBooks() {
+        StringBuilder bookList = new StringBuilder();
+        appendBooksToList(bookList, books, "Books");
+        appendEBooksToList(bookList, ebooks, "EBooks");
+
+        if (bookList.isEmpty()) {
+            bookList.append("No books available.");
+        }
+
+        JTextArea bookTextArea = new JTextArea(bookList.toString());
+        JScrollPane scrollPane = new JScrollPane(bookTextArea);
+        JOptionPane.showMessageDialog(null, scrollPane, "Books", JOptionPane.PLAIN_MESSAGE);
+    }
+
+    private void appendBooksToList(StringBuilder list, ArrayList<Book> books, String type) {
+        if (!books.isEmpty()) {
+            list.append(type).append(":\n");
             for (Book book : books) {
-                bookList.append("ID: ").append(book.getItemId()).append(", Title: ")
-                        .append(book.getTitle()).append(", Author: ")
-                        .append(book.getAuthor()).append(", Year Published: ")
-                        .append(book.getYearPublished()).append(", Quantity: ")
-                        .append(book.getQuantity()).append("\n");
+                list.append("ID: ").append(book.getItemId())
+                        .append(", Title: ").append(book.getTitle())
+                        .append(", Author: ").append(book.getAuthor())
+                        .append(", Year Published: ").append(book.getYearPublished())
+                        .append(", Quantity: ").append(book.getQuantity())
+                        .append("\n");
             }
-            for (EBook ebook : ebooks) {
-                bookList.append("ID: ").append(ebook.getItemId()).append(", Title: ")
-                        .append(ebook.getTitle()).append(", Author: ")
-                        .append(ebook.getAuthor()).append(", Year Published: ")
-                        .append(ebook.getYearPublished()).append(", Size: ")
-                        .append(ebook.getSize()).append(", Format: ")
-                        .append(ebook.getFormat()).append("\n");
-            }
-//            Label bookDisplayArea = null;
-//            bookDisplayArea.setText(bookList.toString());
+            list.append("\n");
         }
     }
 
+    private void appendEBooksToList(StringBuilder list, ArrayList<EBook> ebooks, String type) {
+        if (!ebooks.isEmpty()) {
+            list.append(type).append(":\n");
+            for (EBook ebook : ebooks) {
+                list.append("ID: ").append(ebook.getItemId())
+                        .append(", Title: ").append(ebook.getTitle())
+                        .append(", Author: ").append(ebook.getAuthor())
+                        .append(", Year Published: ").append(ebook.getYearPublished())
+                        .append(", Size: ").append(ebook.getSize())
+                        .append(", Format: ").append(ebook.getFormat())
+                        .append("\n");
+            }
+            list.append("\n");
+        }
+    }
 
     public void borrowBook() {
         JTextField bookIdField = new JTextField();
@@ -279,8 +344,6 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
             String bookId = bookIdField.getText().trim();
             String title = titleField.getText().trim();
             String author = authorField.getText().trim();
-
-            // Year Published Validation
             int yearPublished;
             try {
                 yearPublished = Integer.parseInt(yearField.getText());
@@ -294,7 +357,6 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
             }
 
             if (bookId.startsWith("B")) {
-                // Handle Quantity for physical books
                 int quantity;
                 try {
                     quantity = Integer.parseInt(quantityField.getText());
@@ -306,7 +368,6 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
                 Book newBook = new Book(bookId, title, author, yearPublished, quantity);
                 library.addBook(newBook);
             } else if (bookId.startsWith("E")) {
-                // Handle Size for eBooks
                 double size;
                 try {
                     size = Double.parseDouble(sizeField.getText());
@@ -314,7 +375,6 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
                     JOptionPane.showMessageDialog(this, "Invalid size format.", "Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
-
                 String format = formatField.getText().trim();
                 EBook newEBook = new EBook(bookId, title, author, yearPublished, size, format);
                 library.addEBook(newEBook);
@@ -327,95 +387,173 @@ public class ShowMenuAdmin extends JFrame implements ActionListener {
     public void editBook() {
         JTextField bookIdField = new JTextField();
         Object[] message = {
-                "Enter the ID of the book you want to edit:", bookIdField,
+                "Enter the ID of the book/ebook you want to edit:", bookIdField,
         };
 
-        int option = JOptionPane.showConfirmDialog(this, message, "Edit Book", JOptionPane.OK_CANCEL_OPTION);
+        int option = JOptionPane.showConfirmDialog(this, message, "Edit Book/EBook", JOptionPane.OK_CANCEL_OPTION);
         if (option == JOptionPane.OK_OPTION) {
             String bookId = bookIdField.getText().trim();
-            Book bookToEdit = library.findBookById(bookId);
-            if (bookToEdit != null) {
-                JTextField titleField = new JTextField(bookToEdit.getTitle());
-                JTextField authorField = new JTextField(bookToEdit.getAuthor());
-                JTextField yearField = new JTextField(String.valueOf(bookToEdit.getYearPublished()));
-                JTextField quantityField = new JTextField(String.valueOf(bookToEdit.getQuantity()));
 
-                Object[] editMessage = {
-                        "Current information of the book:",
-                        "ID: " + bookToEdit.getItemId(),
-                        "Title:", titleField,
-                        "Author:", authorField,
-                        "Year Published:", yearField,
-                        "Quantity:", quantityField,
-                };
+            if (bookId.startsWith("B")) {
+                Book bookToEdit = library.findBookById(bookId);
+                if (bookToEdit != null) {
+                    JTextField titleField = new JTextField(bookToEdit.getTitle());
+                    JTextField authorField = new JTextField(bookToEdit.getAuthor());
+                    JTextField yearField = new JTextField(String.valueOf(bookToEdit.getYearPublished()));
+                    JTextField quantityField = new JTextField(String.valueOf(bookToEdit.getQuantity()));
 
-                int editOption = JOptionPane.showConfirmDialog(this, editMessage, "Edit Book", JOptionPane.OK_CANCEL_OPTION);
-                if (editOption == JOptionPane.OK_OPTION) {
-                    String newTitle = titleField.getText().trim();
-                    String newAuthor = authorField.getText().trim();
-                    int newYear;
-                    int newQuantity;
+                    Object[] editMessage = {
+                            "Current information of the book:",
+                            "ID: " + bookToEdit.getItemId(),
+                            "Title:", titleField,
+                            "Author:", authorField,
+                            "Year Published:", yearField,
+                            "Quantity:", quantityField,
+                    };
 
-                    try {
-                        newYear = Integer.parseInt(yearField.getText().trim());
-                        if (newYear < 0) {
-                            JOptionPane.showMessageDialog(this, "Year published cannot be negative.", "Error", JOptionPane.ERROR_MESSAGE);
+                    int editOption = JOptionPane.showConfirmDialog(this, editMessage, "Edit Book", JOptionPane.OK_CANCEL_OPTION);
+                    if (editOption == JOptionPane.OK_OPTION) {
+                        String newTitle = titleField.getText().trim();
+                        String newAuthor = authorField.getText().trim();
+                        int newYear;
+                        int newQuantity;
+
+                        try {
+                            newYear = Integer.parseInt(yearField.getText().trim());
+                            if (newYear < 0) {
+                                JOptionPane.showMessageDialog(this, "Year published cannot be negative.", "Error", JOptionPane.ERROR_MESSAGE);
+                                return;
+                            }
+                        } catch (NumberFormatException e) {
+                            JOptionPane.showMessageDialog(this, "Invalid year published format.", "Error", JOptionPane.ERROR_MESSAGE);
                             return;
                         }
-                    } catch (NumberFormatException e) {
-                        JOptionPane.showMessageDialog(this, "Invalid year published format.", "Error", JOptionPane.ERROR_MESSAGE);
-                        return;
+
+                        try {
+                            newQuantity = Integer.parseInt(quantityField.getText().trim());
+                        } catch (NumberFormatException e) {
+                            JOptionPane.showMessageDialog(this, "Invalid quantity format.", "Error", JOptionPane.ERROR_MESSAGE);
+                            return;
+                        }
+
+                        bookToEdit.setTitle(newTitle);
+                        bookToEdit.setAuthor(newAuthor);
+                        bookToEdit.setYearPublished(newYear);
+                        bookToEdit.setQuantity(newQuantity);
+
+                        JOptionPane.showMessageDialog(this, "Book information updated successfully.");
                     }
+                } else {
+                    JOptionPane.showMessageDialog(this, "Book with ID " + bookId + " not found.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } else if (bookId.startsWith("E")) {
+                EBook ebookToEdit = library.findEBookById(bookId);
+                if (ebookToEdit != null) {
+                    JTextField titleField = new JTextField(ebookToEdit.getTitle());
+                    JTextField authorField = new JTextField(ebookToEdit.getAuthor());
+                    JTextField yearField = new JTextField(String.valueOf(ebookToEdit.getYearPublished()));
+                    JTextField sizeField = new JTextField(String.valueOf(ebookToEdit.getSize()));
+                    JTextField formatField = new JTextField(ebookToEdit.getFormat());
 
-                    try {
-                        newQuantity = Integer.parseInt(quantityField.getText().trim());
-                    } catch (NumberFormatException e) {
-                        JOptionPane.showMessageDialog(this, "Invalid quantity format.", "Error", JOptionPane.ERROR_MESSAGE);
-                        return;
+                    Object[] editMessage = {
+                            "Current information of the ebook:",
+                            "ID: " + ebookToEdit.getItemId(),
+                            "Title:", titleField,
+                            "Author:", authorField,
+                            "Year Published:", yearField,
+                            "Size:", sizeField,
+                            "Format:", formatField,
+                    };
+
+                    int editOption = JOptionPane.showConfirmDialog(this, editMessage, "Edit EBook", JOptionPane.OK_CANCEL_OPTION);
+                    if (editOption == JOptionPane.OK_OPTION) {
+                        String newTitle = titleField.getText().trim();
+                        String newAuthor = authorField.getText().trim();
+                        int newYear;
+                        double newSize;
+                        String newFormat = formatField.getText().trim();
+
+                        try {
+                            newYear = Integer.parseInt(yearField.getText().trim());
+                            if (newYear < 0) {
+                                JOptionPane.showMessageDialog(this, "Year published cannot be negative.", "Error", JOptionPane.ERROR_MESSAGE);
+                                return;
+                            }
+                        } catch (NumberFormatException e) {
+                            JOptionPane.showMessageDialog(this, "Invalid year published format.", "Error", JOptionPane.ERROR_MESSAGE);
+                            return;
+                        }
+
+                        try {
+                            newSize = Double.parseDouble(sizeField.getText().trim());
+                            if (newSize < 0) {
+                                JOptionPane.showMessageDialog(this, "Size cannot be negative.", "Error", JOptionPane.ERROR_MESSAGE);
+                                return;
+                            }
+                        } catch (NumberFormatException e) {
+                            JOptionPane.showMessageDialog(this, "Invalid size format.", "Error", JOptionPane.ERROR_MESSAGE);
+                            return;
+                        }
+
+                        ebookToEdit.setTitle(newTitle);
+                        ebookToEdit.setAuthor(newAuthor);
+                        ebookToEdit.setYearPublished(newYear);
+                        ebookToEdit.setSize(newSize);
+                        ebookToEdit.setFormat(newFormat);
+
+                        JOptionPane.showMessageDialog(this, "EBook information updated successfully.");
                     }
-
-                    bookToEdit.setTitle(newTitle);
-                    bookToEdit.setAuthor(newAuthor);
-                    bookToEdit.setYearPublished(newYear);
-                    bookToEdit.setQuantity(newQuantity);
-
-                    JOptionPane.showMessageDialog(this, "Book information updated successfully.");
+                } else {
+                    JOptionPane.showMessageDialog(this, "EBook with ID " + bookId + " not found.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             } else {
-                JOptionPane.showMessageDialog(this, "Book with ID " + bookId + " not found.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Invalid ID format. Please enter a valid book or ebook ID.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
+
 
     public void removeBook() {
         JTextField bookIdField = new JTextField();
         JTextField quantityField = new JTextField();
 
         Object[] message = {
-                "Enter the Book ID to remove:", bookIdField,
-                "Enter the quantity to remove:", quantityField
+                "Enter the Book/EBook ID to remove:", bookIdField,
+                "Enter the quantity to remove (for physical books only):", quantityField
         };
 
-        int option = JOptionPane.showConfirmDialog(this, message, "Remove Book", JOptionPane.OK_CANCEL_OPTION);
+        int option = JOptionPane.showConfirmDialog(this, message, "Remove Book/EBook", JOptionPane.OK_CANCEL_OPTION);
         if (option == JOptionPane.OK_OPTION) {
             String bookId = bookIdField.getText().trim();
-            int quantityToRemove;
+            int quantityToRemove = 0;
 
-            try {
-                quantityToRemove = Integer.parseInt(quantityField.getText().trim());
-            } catch (NumberFormatException e) {
-                JOptionPane.showMessageDialog(this, "Invalid quantity format.", "Error", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
+            if (bookId.startsWith("B")) {
+                try {
+                    quantityToRemove = Integer.parseInt(quantityField.getText().trim());
+                } catch (NumberFormatException e) {
+                    JOptionPane.showMessageDialog(this, "Invalid quantity format.", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
 
-            boolean success = library.removeBookGUI(bookId, quantityToRemove);
-            if (success) {
-                JOptionPane.showMessageDialog(this, "Book removed successfully.");
+                boolean success = library.removeBookGUI(bookId, quantityToRemove);
+                if (success) {
+                    JOptionPane.showMessageDialog(this, "Book removed successfully.");
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to remove the book. Please check the Book ID and quantity.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } else if (bookId.startsWith("E")) {
+                boolean success = library.removeEBookGUI(bookId);
+                if (success) {
+                    JOptionPane.showMessageDialog(this, "EBook removed successfully.");
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to remove the ebook. Please check the EBook ID.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
             } else {
-                JOptionPane.showMessageDialog(this, "Failed to remove the book. Please check the Book ID and quantity.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Invalid ID format. Please enter a valid book or ebook ID.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
+
 
     public void saveDatabase() {
         library.saveAllToDatabase();
